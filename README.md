@@ -25,7 +25,7 @@ Internet
     │  (Launch Template + IMDSv2)   │
     └───────┬───────────────────────┘
             │
-    ┌───────▼──────────┐    ┌──────────────┐
+    ┌───────▼──────────┐     ┌──────────────┐
     │  RDS PostgreSQL   │    │ ElastiCache  │
     │  Multi-AZ + Read  │    │    Redis     │
     │     Replica       │    └──────────────┘
