@@ -1,25 +1,61 @@
-variable "project_name" { type = string }
-variable "environment"  { type = string }
-variable "vpc_cidr"     { type = string }
-variable "availability_zones" { type = list(string) }
-variable "public_subnets"     { type = list(string) }
-variable "private_subnets"    { type = list(string) }
-variable "database_subnets"   { type = list(string) }
-variable "enable_nat_gateway" { type = bool; default = true }
-variable "single_nat_gateway" { type = bool; default = false }
+variable "project_name" {
+  type = string
+}
 
-locals { name = "${var.project_name}-${var.environment}" }
+variable "environment" {
+  type = string
+}
+
+variable "vpc_cidr" {
+  type = string
+}
+
+variable "availability_zones" {
+  type = list(string)
+}
+
+variable "public_subnets" {
+  type = list(string)
+}
+
+variable "private_subnets" {
+  type = list(string)
+}
+
+variable "database_subnets" {
+  type = list(string)
+}
+
+variable "enable_nat_gateway" {
+  type    = bool
+  default = true
+}
+
+variable "single_nat_gateway" {
+  type    = bool
+  default = false
+}
+
+locals {
+  name = "${var.project_name}-${var.environment}"
+}
 
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
-  tags = { Name = "${local.name}-vpc" }
+
+  tags = {
+    Name = "${local.name}-vpc"
+  }
 }
 
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
-  tags   = { Name = "${local.name}-igw" }
+
+  tags = {
+    Name = "${local.name}-igw"
+  }
 }
 
 resource "aws_subnet" "public" {
@@ -28,7 +64,11 @@ resource "aws_subnet" "public" {
   cidr_block              = var.public_subnets[count.index]
   availability_zone       = var.availability_zones[count.index]
   map_public_ip_on_launch = true
-  tags = { Name = "${local.name}-public-${count.index + 1}", Tier = "public" }
+
+  tags = {
+    Name = "${local.name}-public-${count.index + 1}"
+    Tier = "public"
+  }
 }
 
 resource "aws_subnet" "private" {
@@ -36,7 +76,12 @@ resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.private_subnets[count.index]
   availability_zone = var.availability_zones[count.index]
-  tags = { Name = "${local.name}-private-${count.index + 1}", Tier = "private", "kubernetes.io/role/internal-elb" = "1" }
+
+  tags = {
+    Name                                   = "${local.name}-private-${count.index + 1}"
+    Tier                                   = "private"
+    "kubernetes.io/role/internal-elb" = "1"
+  }
 }
 
 resource "aws_subnet" "database" {
@@ -44,22 +89,41 @@ resource "aws_subnet" "database" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.database_subnets[count.index]
   availability_zone = var.availability_zones[count.index]
-  tags = { Name = "${local.name}-database-${count.index + 1}", Tier = "database" }
+
+  tags = {
+    Name = "${local.name}-database-${count.index + 1}"
+    Tier = "database"
+  }
 }
 
-resource "aws_eip"         "nat"  { count = var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : length(var.availability_zones)) : 0; domain = "vpc" }
+resource "aws_eip" "nat" {
+  count  = var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : length(var.availability_zones)) : 0
+  domain = "vpc"
+}
+
 resource "aws_nat_gateway" "main" {
   count         = var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : length(var.availability_zones)) : 0
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[count.index].id
-  depends_on    = [aws_internet_gateway.main]
-  tags          = { Name = "${local.name}-nat-${count.index + 1}" }
+
+  depends_on = [aws_internet_gateway.main]
+
+  tags = {
+    Name = "${local.name}-nat-${count.index + 1}"
+  }
 }
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
-  route  { cidr_block = "0.0.0.0/0"; gateway_id = aws_internet_gateway.main.id }
-  tags   = { Name = "${local.name}-public-rt" }
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name = "${local.name}-public-rt"
+  }
 }
 
 resource "aws_route_table_association" "public" {
@@ -71,27 +135,61 @@ resource "aws_route_table_association" "public" {
 resource "aws_route_table" "private" {
   count  = var.enable_nat_gateway ? (var.single_nat_gateway ? 1 : length(var.availability_zones)) : 1
   vpc_id = aws_vpc.main.id
+
   dynamic "route" {
     for_each = var.enable_nat_gateway ? [1] : []
-    content { cidr_block = "0.0.0.0/0"; nat_gateway_id = var.single_nat_gateway ? aws_nat_gateway.main[0].id : aws_nat_gateway.main[count.index].id }
+
+content {
+  cidr_block = "0.0.0.0/0"
+
+  nat_gateway_id = (
+    var.single_nat_gateway
+    ? aws_nat_gateway.main[0].id
+    : aws_nat_gateway.main[count.index].id
+  )
+}
   }
-  tags = { Name = "${local.name}-private-rt-${count.index + 1}" }
+
+  tags = {
+    Name = "${local.name}-private-rt-${count.index + 1}"
+  }
 }
 
 resource "aws_route_table_association" "private" {
-  count          = length(var.private_subnets)
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = var.single_nat_gateway ? aws_route_table.private[0].id : aws_route_table.private[count.index].id
-}
+  count     = length(var.private_subnets)
+  subnet_id = aws_subnet.private[count.index].id
 
+  route_table_id = (
+    var.single_nat_gateway
+    ? aws_route_table.private[0].id
+    : aws_route_table.private[count.index].id
+  )
+}
 resource "aws_db_subnet_group" "main" {
   name       = "${local.name}-db-subnet-group"
   subnet_ids = aws_subnet.database[*].id
-  tags       = { Name = "${local.name}-db-subnet-group" }
+
+  tags = {
+    Name = "${local.name}-db-subnet-group"
+  }
 }
 
-output "vpc_id"               { value = aws_vpc.main.id }
-output "public_subnet_ids"    { value = aws_subnet.public[*].id }
-output "private_subnet_ids"   { value = aws_subnet.private[*].id }
-output "database_subnet_ids"  { value = aws_subnet.database[*].id }
-output "db_subnet_group_name" { value = aws_db_subnet_group.main.name }
+output "vpc_id" {
+  value = aws_vpc.main.id
+}
+
+output "public_subnet_ids" {
+  value = aws_subnet.public[*].id
+}
+
+output "private_subnet_ids" {
+  value = aws_subnet.private[*].id
+}
+
+output "database_subnet_ids" {
+  value = aws_subnet.database[*].id
+}
+
+output "db_subnet_group_name" {
+  value = aws_db_subnet_group.main.name
+}
