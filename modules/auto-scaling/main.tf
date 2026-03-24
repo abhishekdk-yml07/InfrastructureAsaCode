@@ -3,12 +3,27 @@ variable "environment"        { type = string }
 variable "private_subnet_ids" { type = list(string) }
 variable "app_sg_id"          { type = string }
 variable "target_group_arn"   { type = string }
-variable "instance_type"      { type = string; default = "t3.medium" }
+variable "instance_type" {
+  type    = string
+  default = "t3.medium"
+}
 variable "ami_id"             { type = string }
-variable "min_size"           { type = number; default = 2 }
-variable "max_size"           { type = number; default = 10 }
-variable "desired_capacity"   { type = number; default = 2 }
-variable "key_name"           { type = string; default = "" }
+variable "min_size"           { 
+  type = number
+   default = 2
+    }
+variable "max_size"           {
+   type = number
+    default = 10
+     }
+variable "desired_capacity"   { 
+  type = number
+   default = 2 
+   }
+variable "key_name"           {
+   type = string
+    default = "" 
+    }
 
 locals { name = "${var.project_name}-${var.environment}" }
 
@@ -16,8 +31,14 @@ resource "aws_iam_role" "app" {
   name = "${local.name}-app-role"
   assume_role_policy = jsonencode({ Version = "2012-10-17", Statement = [{ Action = "sts:AssumeRole", Effect = "Allow", Principal = { Service = "ec2.amazonaws.com" } }] })
 }
-resource "aws_iam_role_policy_attachment" "ssm"        { role = aws_iam_role.app.name; policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore" }
-resource "aws_iam_role_policy_attachment" "cloudwatch" { role = aws_iam_role.app.name; policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy" }
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.app.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+resource "aws_iam_role_policy_attachment" "cloudwatch" {
+  role       = aws_iam_role.app.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
 resource "aws_iam_instance_profile" "app"              { name = "${local.name}-app-profile"; role = aws_iam_role.app.name }
 
 resource "aws_launch_template" "app" {
@@ -56,9 +77,12 @@ resource "aws_autoscaling_group" "app" {
   health_check_grace_period = 300
   launch_template { id = aws_launch_template.app.id; version = "$Latest" }
   instance_refresh { strategy = "Rolling"; preferences { min_healthy_percentage = 50; instance_warmup = 300 } }
-  tag { key = "Name"; value = "${local.name}-asg"; propagate_at_launch = true }
+  tag {
+    key                 = "Name"
+    value               = "${local.name}-asg"
+    propagate_at_launch = true
+  }
 }
-
 resource "aws_autoscaling_policy" "cpu" {
   name                   = "${local.name}-cpu-scaling"
   autoscaling_group_name = aws_autoscaling_group.app.name
