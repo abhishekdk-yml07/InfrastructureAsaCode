@@ -1,4 +1,5 @@
-# 🏗️ Infrastructure as Code — AWS Multi-Environment
+# <img width="64" height="64" alt="image" src="https://github.com/user-attachments/assets/6efba6b3-2f47-4e48-a736-b0f52cb7cf6b" />
+ Infrastructure as Code — AWS Multi-Environment
 
 > **Problem:** Manually provisioned cloud infrastructure is error-prone, undocumented, and impossible to reproduce. Drift between environments causes "works in dev, breaks in prod" failures.
 >
