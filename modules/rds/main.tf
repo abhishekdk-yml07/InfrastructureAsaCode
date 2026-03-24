@@ -4,16 +4,33 @@ variable "vpc_id"               { type = string }
 variable "database_subnet_ids"  { type = list(string) }
 variable "db_subnet_group_name" { type = string }
 variable "rds_sg_id"            { type = string }
-variable "db_name"              { type = string; default = "appdb" }
-variable "db_username"          { type = string; default = "dbadmin" }
-variable "db_instance_class"    { type = string; default = "db.t3.medium" }
-variable "db_engine_version"    { type = string; default = "15.4" }
-variable "multi_az"             { type = bool; default = true }
+variable "db_name"              { 
+  type = string
+   default = "appdb" 
+   }
+variable "db_username"          {
+   type = string
+   default = "dbadmin" 
+   }
+variable "db_instance_class"    { 
+  type = string
+   default = "db.t3.medium"
+    }
+variable "db_engine_version"    {
+   type = string
+    default = "15.4"
+     }
+variable "multi_az"{ 
+  type = bool
+   default = true 
+   }
 
 locals { name = "${var.project_name}-${var.environment}" }
 
 resource "random_password" "db" {
-  length  = 32; special = true; override_special = "!#$%&*()-_=+[]{}<>:?"
+  length  = 32
+   special = true
+    override_special = "!#$%&*()-_=+[]{}<>:?"
 }
 
 resource "aws_secretsmanager_secret" "db" {
@@ -28,8 +45,14 @@ resource "aws_secretsmanager_secret_version" "db" {
 resource "aws_db_parameter_group" "main" {
   name   = "${local.name}-pg15"
   family = "postgres15"
-  parameter { name = "log_min_duration_statement"; value = "1000" }
-  parameter { name = "shared_preload_libraries"; value = "pg_stat_statements" }
+  parameter { 
+    name = "log_min_duration_statement"
+   value = "1000"
+    }
+  parameter {
+     name = "shared_preload_libraries"
+      value = "pg_stat_statements" 
+      }
 }
 
 resource "aws_db_instance" "main" {
@@ -60,6 +83,9 @@ resource "aws_db_instance" "main" {
   tags = { Name = "${local.name}-postgres" }
 }
 
-output "db_endpoint"   { value = aws_db_instance.main.address; sensitive = true }
+output "db_endpoint"   { 
+  value = aws_db_instance.main.address
+ sensitive = true
+  }
 output "db_port"       { value = aws_db_instance.main.port }
 output "db_secret_arn" { value = aws_secretsmanager_secret.db.arn }
